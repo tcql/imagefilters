@@ -19,6 +19,7 @@ module Graphics.Filters.GD
 import Graphics.GD
 import Graphics.Filters.Util
 import Control.Monad (mapM_,foldM)
+import Control.Applicative ((<$>),(<*>)) 
 
 {- |
     Performs the supplied transform function on every pixel of the image.
@@ -41,16 +42,13 @@ pixelTransform ::    Image
                     -> IO ()
 pixelTransform img fx = do
     (width,height) <- imageSize img
-    mapM_ (\y -> 
-        mapM_ (\x -> do
-                curr <- getPixel (x,y) img
-                let
-                    (r,g,b,a) = toRGBA curr
-                    (nr,ng,nb,na) = fx (r,g,b,a)
-                setPixel (x,y) (rgba nr ng nb na) img
-            ) [0..(width-1)]
-        ) [0..(height-1)] 
-    return ()
+    mapM_ (\(x,y) -> do
+            curr <- getPixel (x,y) img
+            let
+                (r,g,b,a) = toRGBA curr
+                (nr,ng,nb,na) = fx (r,g,b,a)
+            setPixel (x,y) (rgba nr ng nb na) img
+        ) $ (,) <$> [0..(width-1)] <*> [0..(height-1)]
 
 {- |
     Performs the convolution matrix on each pixel of the original image.
@@ -69,13 +67,32 @@ convolute ::    Image
 convolute img matrix fdiv offset = do
     (width,height) <- imageSize img
     imgCpy <- copyImage img
-    mapM_ (\y -> 
-        mapM_ (\x -> convoluteImage img imgCpy matrix fdiv offset x y) [0..(width-1)]
-        ) [0..(height-1)] 
-    return ()
+    mapM_ (\(x,y) -> 
+            convoluteImage img imgCpy matrix fdiv offset x y
+        ) $ (,) <$> [0..(width-1)] <*> [0..(height-1)]
 
 convoluteImage :: Image -> Image -> [[Float]] -> Float -> Float -> Int -> Int -> IO ()
 convoluteImage img imgCpy matrix fdiv offset x y = do
+    (nr,ng,nb,na) <- foldM (\(or,og,ob,oa) (k,j) -> do
+            let 
+                yy = min (max (y-(1+j)) 0) (max (y-1) 0)
+                xx = min (max (x-(1+k)) 0) (max (x-1) 0)
+                mVal = matrix!!j!!k
+            curr <- getPixel (xx,yy) imgCpy
+            let (r,g,b,a) = toRGBA curr
+            return ( or + fromIntegral r * mVal
+                    ,og + fromIntegral g * mVal
+                    ,ob + fromIntegral b * mVal
+                    ,fromIntegral a) 
+        ) (0.0,0.0,0.0,0.0) $ (,) <$> [0..(length (matrix!!0) - 1)] <*> [0..(length matrix - 1)]
+    let 
+        new_r = clamp 0 255 . truncate $ (nr/fdiv)+offset
+        new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
+        new_b = clamp 0 255 . truncate $ (nb/fdiv)+offset
+    setPixel (x,y) (rgba new_r new_g new_b (truncate na)) img
+
+    
+{--
     (nr,ng,nb,na) <- foldM (\(or,og,ob,oa) j -> do
         let yy = min (max (y-(1+j)) 0) (max (y-1) 0)
         (pr,pg,pb,pa) <- foldM (\(ar,ag,ab,aa) k -> do
@@ -88,7 +105,7 @@ convoluteImage img imgCpy matrix fdiv offset x y = do
                             ,fromIntegral a)
                         ) (or,og,ob,oa) [0.. (length (matrix!!j) - 1)]
         return (pr,pg,pb,pa)
-        ) ((0.0,0.0,0.0,0.0) :: (Float,Float,Float,Float)) [0.. (length matrix - 1)]
+        ) ((0.0,0.0,0.0,0.0) :: (Float,Float,Float,Float)) [0.. (length matrix - 1)]--}
     let
         new_r = clamp 0 255 . truncate $ (nr/fdiv)+offset
         new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
