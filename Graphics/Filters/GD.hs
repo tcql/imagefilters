@@ -90,11 +90,6 @@ convoluteImage img imgCpy matrix fdiv offset x y = do
         new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
         new_b = clamp 0 255 . truncate $ (nb/fdiv)+offset
     setPixel (x,y) (rgba new_r new_g new_b (truncate na)) img
-    let
-        new_r = clamp 0 255 . truncate $ (nr/fdiv)+offset
-        new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
-        new_b = clamp 0 255 . truncate $ (nb/fdiv)+offset
-    setPixel (x,y) (rgba new_r new_g new_b (truncate na)) img
 
 {- |
     Applies the supplied color transformation to the image.
