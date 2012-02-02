@@ -1,7 +1,9 @@
 module Graphics.Filters.GD 
 ( 
+    -- * Types
+    SampleMode(..)
     -- * Filters
-    brightness
+    , brightness
     , colorize
     , contrast
     , gaussianBlur
@@ -11,6 +13,7 @@ module Graphics.Filters.GD
     , meanRemoval
     , negative
     , smoothing
+    , pixelate
     -- * Pixel transformation functions
     , pixelTransform
     , convolute
@@ -20,6 +23,8 @@ import Graphics.GD
 import Graphics.Filters.Util
 import Control.Monad (mapM_,foldM)
 import Control.Applicative ((<$>),(<*>)) 
+
+data SampleMode = SAMPLE_AVG | SAMPLE_UPPERLEFT
 
 {- |
     Performs the supplied transform function on every pixel of the image.
@@ -187,3 +192,33 @@ meanRemoval img = convolute img [[-1.0,-1.0,-1.0],[-1.0,9.0,-1.0],[-1.0,-1.0,-1.
 -}
 smoothing :: Image -> Float -> IO ()
 smoothing img weighting= convolute img [[1.0,1.0,1.0],[1.0,weighting,1.0],[1.0,1.0,1.0]] (weighting+8.0) 0
+
+pixelate :: Image 
+            -> Int          -- ^ Size of "Pixelate" blocks 
+            -> SampleMode   -- ^ Color sampling mode
+            -> IO () 
+pixelate img blocksize (SAMPLE_AVG)= do 
+    (width,height) <- imageSize img
+    imgCpy <- copyImage img
+    mapM_ (\(x,y) -> do
+            let pointlist = filter (\(fx,fy) -> and [x+fx < width, y+fy < height]) $ (,) <$>[0..(blocksize-1)] <*> [0..(blocksize-1)] 
+            (nr,ng,nb,na) <- foldM (\(or,og,ob,oa) (bx,by) -> do
+                        curr <- getPixel (x+bx,y+by) imgCpy
+                        let (r,g,b,a) = toRGBA curr
+                        return ((or+fromIntegral r), (og+fromIntegral g), (ob+fromIntegral b), (oa+fromIntegral a))
+                ) (0.0,0.0,0.0,0.0) $ pointlist
+            let 
+               fSize = fromIntegral . length $ pointlist
+               newcolor = rgba (truncate (nr/fSize)) (truncate (ng/fSize)) (truncate (nb/fSize)) (truncate (na/fSize))
+            drawFilledRectangle (x,y) (x+blocksize,y+blocksize) newcolor img
+        ) $ (,) <$> [0,blocksize..(width-1)] <*> [0,blocksize..(height-1)]    
+
+pixelate img blocksize (SAMPLE_UPPERLEFT) = do
+    (width,height) <- imageSize img
+    imgCpy <- copyImage img
+    mapM_ (\(x,y) -> do
+            curr <- getPixel (x,y) imgCpy
+            drawFilledRectangle (x,y) (x+blocksize,y+blocksize) curr img
+        ) $ (,) <$> [0,blocksize..(width-1)] <*> [0,blocksize..(height-1)]    
+    
+
