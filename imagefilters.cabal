@@ -21,3 +21,4 @@ Cabal-version:       >=1.2
 Library
   Exposed-modules:     Graphics.Filters.Util, Graphics.Filters.GD  
   Build-depends: base >= 4 && < 5, gd >= 3000      
+
