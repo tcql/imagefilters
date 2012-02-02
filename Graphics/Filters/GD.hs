@@ -90,22 +90,6 @@ convoluteImage img imgCpy matrix fdiv offset x y = do
         new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
         new_b = clamp 0 255 . truncate $ (nb/fdiv)+offset
     setPixel (x,y) (rgba new_r new_g new_b (truncate na)) img
-
-    
-{--
-    (nr,ng,nb,na) <- foldM (\(or,og,ob,oa) j -> do
-        let yy = min (max (y-(1+j)) 0) (max (y-1) 0)
-        (pr,pg,pb,pa) <- foldM (\(ar,ag,ab,aa) k -> do
-                        let xx = min (max (x-(1+k)) 0) (max (x-1) 0)
-                        curr <- getPixel (xx,yy) imgCpy
-                        let (r,g,b,a) = toRGBA curr
-                        return (ar + fromIntegral r * ((matrix!!j)!!k)
-                            ,ag + fromIntegral g * ((matrix!!j)!!k)
-                            ,ab + fromIntegral b * ((matrix!!j)!!k)
-                            ,fromIntegral a)
-                        ) (or,og,ob,oa) [0.. (length (matrix!!j) - 1)]
-        return (pr,pg,pb,pa)
-        ) ((0.0,0.0,0.0,0.0) :: (Float,Float,Float,Float)) [0.. (length matrix - 1)]--}
     let
         new_r = clamp 0 255 . truncate $ (nr/fdiv)+offset
         new_g = clamp 0 255 . truncate $ (ng/fdiv)+offset
